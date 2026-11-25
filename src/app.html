@@ -194,7 +194,10 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
 .pct .pb{position:relative;display:inline-block;min-width:38px;border-radius:5px;padding:1px 4px}
 @media(max-width:700px){.pct{font-size:12px}.pct th,.pct td{padding:4px 3px}.pct .st{font-size:11px;padding:2px 4px}}
 
-.fmrow{justify-content:flex-end;flex-wrap:wrap}
+.fmrow{justify-content:space-between;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line,#8884);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;color:inherit;font:inherit;font-size:12px;padding:4px 9px;cursor:pointer;opacity:.7}
+.seg button.on{background:var(--accent,#2563eb);color:#fff;opacity:1;font-weight:650}
 .cardoff{display:none!important}
 .zplan{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .zplan li{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:start;padding:8px 10px;border-radius:10px;background:var(--panel2)}
@@ -310,7 +313,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
   </section>
 
   <details class="card fold" id="fMap" open>
-    <summary><span>Predpoveď zrážok a snehu · animácia (SHMÚ ALADIN)</span><span class="chev">▾</span></summary>
+    <summary><span>Predpoveď zrážok a snehu · animácia (ALADIN)</span><span class="chev">▾</span></summary>
     <div class="fbody">
       <div class="radar" id="fmMap"></div>
       <div class="radctl">
@@ -319,6 +322,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
         <span id="fmTime" class="radtime">–</span>
       </div>
       <div class="radctl fmrow">
+        <span class="seg" id="fmSrc"><button data-s="ald">SHMÚ 4,5 km</button><button data-s="cz1">ČHMÚ 1 km</button></span>
         <span id="fmVal" class="fmval"></span>
       </div>
       <div class="legend fmleg"><b>Dážď</b><i style="background:#b9e8b0"></i><i style="background:#6fd16a"></i><i style="background:#2fa84f"></i><i style="background:#f2d23c"></i><i style="background:#f08a24"></i><i style="background:#d7301f"></i>
@@ -1188,57 +1192,93 @@ function fmInit(){
   FM.map.createPane('labels'); FM.map.getPane('labels').style.zIndex=450; FM.map.getPane('labels').style.pointerEvents='none';
   const dark=document.documentElement.getAttribute('data-theme')==='dark'||(!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
   const E='https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_'+(dark?'Dark':'Light')+'_Gray_';
-  L.tileLayer(E+'Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:14,minZoom:9,referrerPolicy:'no-referrer',attribution:'Mapa © Esri, HERE, OpenStreetMap · predpoveď © SHMÚ ALADIN'}).addTo(FM.map);
+  L.tileLayer(E+'Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:14,minZoom:9,referrerPolicy:'no-referrer',attribution:'Mapa © Esri, HERE, OpenStreetMap · predpoveď © SHMÚ, ČHMÚ (Open-Meteo)'}).addTo(FM.map);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',{maxZoom:14,minZoom:9,maxNativeZoom:13,referrerPolicy:'no-referrer',opacity:dark?0.25:0.45,className:'fmhill'}).addTo(FM.map);
   FM.towns=FMT.map(([n,la,lo,big])=>({n,la,lo,m:L.marker([la,lo],{pane:'labels',interactive:false,icon:L.divIcon({className:'fmtown'+(big?' big':''),html:'',iconSize:null})}).addTo(FM.map)}));
   FM.badge=L.control({position:'bottomleft'}); FM.badge.onAdd=()=>{const d=L.DomUtil.create('div','fmbadge'); d.id='fmBadge'; return d}; FM.badge.addTo(FM.map);
   FM.mk=L.circleMarker([LAT,LON],{radius:5,color:'#fff',weight:2,fillColor:'#ef4444',fillOpacity:1,pane:'labels'}).addTo(FM.map);
   return true;
 }
+/* ALADIN ČHMÚ 1 km – mriežka 21×21 bodov (~1,6 km) z Open-Meteo; doména modelu končí na 19,0° v. d. */
+const CZG={la0:49.06,dla:0.015,lo0:18.55,dlo:0.0225,n:21};
+const CZ={data:null,busy:false,err:null};
+let fmSrc=lsGet('zu_fmsrc')==='cz1'?'cz1':'ald';
+async function loadCz1(){
+  if(CZ.busy) return; if(!CZ.data){ try{ const c=JSON.parse(localStorage.getItem('zu_cz1g')||'null'); if(c&&c.fr&&c.fr.length) CZ.data=c; }catch(e){} }
+  if(CZ.data && Date.now()-CZ.data.at<2*36e5) return;
+  CZ.busy=true; CZ.err=null;
+  try{ const la=[],lo=[]; for(let j=0;j<CZG.n;j++) for(let i=0;i<CZG.n;i++){ la.push((CZG.la0+j*CZG.dla).toFixed(3)); lo.push((CZG.lo0+i*CZG.dlo).toFixed(4)); }
+    const j=await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}&hourly=precipitation,snowfall,temperature_2m&models=chmi_aladin_cz_1km&past_hours=1&forecast_hours=60&timezone=GMT`);
+    if(!Array.isArray(j)||j.length!==CZG.n*CZG.n) throw new Error('neúplné dáta');
+    const T=j[0].hourly.time, fr=[], r1=x=>x==null?null:Math.round(x*100)/100;
+    for(let h=0;h<T.length;h++){ const tp=[],t2=[],sr=[]; let any=false;
+      for(const P of j){ const H=P.hourly, pr=H.precipitation[h], sn=H.snowfall[h], t=H.temperature_2m[h]; if(t!=null) any=true;
+        tp.push(pr==null?0:r1(Math.max(0,pr))); t2.push(t==null?null:Math.round(t*10)/10); sr.push(pr>0.01&&sn!=null?Math.round(Math.min(1,sn*0.7/pr)*100)/100:0); }
+      if(any) fr.push({t:T[h]+':00.000Z',tp,t2,sr}); }
+    if(fr.length<6) throw new Error('model ešte nemá dáta');
+    CZ.data={at:Date.now(),fr}; try{ localStorage.setItem('zu_cz1g',JSON.stringify(CZ.data)); }catch(e){}
+  }catch(e){ CZ.err=e.message; }
+  finally{ CZ.busy=false; }
+}
+function fmSource(){
+  if(fmSrc==='cz1'){ const c=CZ.data; if(!c) return null; const h=CZG.dla/2, w=CZG.dlo/2;
+    return {id:'cz1'+c.at, fr:c.fr, n:CZG.n, sw:[CZG.la0-h,CZG.lo0-w], ne:[CZG.la0+(CZG.n-1)*CZG.dla+h,CZG.lo0+(CZG.n-1)*CZG.dlo+w],
+      toG:(la,lo)=>[(lo-CZG.lo0)/CZG.dlo,(la-CZG.la0)/CZG.dla],
+      note:`Hodinové zrážky z modelu ALADIN ČHMÚ 1 km (cez Open-Meteo), stav ${new Date(c.at).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'})}. Doména modelu končí na 19,0° v. d. (východnejšie bez dát). Typ zrážok podľa podielu snehu v modeli.`}; }
+  const G=D&&D.ald&&D.ald.grid; if(!G) return null;
+  return {id:'ald'+D.ald.run, fr:G.steps, n:2*G.R+1, ald:true,
+    sw:ALD.ilcc(G.ci-G.R-0.5,G.cj-G.R-0.5,G.g), ne:ALD.ilcc(G.ci+G.R+0.5,G.cj+G.R+0.5,G.g),
+    toG:(la,lo)=>{ const [fi,fj]=ALD.lcc(la,lo,G.g); return [fi-(G.ci-G.R), fj-(G.cj-G.R)]; },
+    note:`Hodinové zrážky z modelu SHMÚ ALADIN 4,5 km, beh ${+D.ald.run.slice(6,8)}. ${+D.ald.run.slice(4,6)}. ${D.ald.run.slice(9,11)}:00 UTC (rovnaký ako hlavná predpoveď). Typ zrážok podľa teploty pri zemi a v 1500 m.`};
+}
+function fmSegUpd(){ for(const b of $('fmSrc').querySelectorAll('button')) b.classList.toggle('on',b.dataset.s===fmSrc); }
 function renderFmap(){
-  const G=D&&D.ald&&D.ald.grid; if(!$('fMap').open) return;
-  if(!G){ $('fmNote').textContent='Čakám na dáta SHMÚ ALADIN…'; return; }
+  if(!$('fMap').open) return; fmSegUpd();
+  if(fmSrc==='cz1' && (!CZ.data || Date.now()-CZ.data.at>=2*36e5) && !CZ.busy){ if(!CZ.data) $('fmNote').textContent='Načítavam ALADIN ČHMÚ 1 km…'; loadCz1().then(()=>{ if(fmSrc==='cz1'){ if(!CZ.data&&CZ.err) $('fmNote').textContent='ALADIN ČHMÚ 1 km sa nepodarilo načítať ('+CZ.err+').'; else renderFmap(); } }); if(!CZ.data) return; }
+  const src=fmSource();
+  if(!src){ $('fmNote').textContent=fmSrc==='cz1'?'Načítavam ALADIN ČHMÚ 1 km…':'Čakám na dáta SHMÚ ALADIN…'; return; }
   if(!fmInit()) { $('fmNote').textContent='Mapa sa nedá načítať (bez internetu alebo zablokované).'; return; }
   const nowH=Date.now()-36e5;
-  const fr=G.steps.filter(x=>Date.parse(x.t)>nowH);
+  const fr=src.fr.filter(x=>Date.parse(x.t)>nowH);
   if(!fr.length) return;
-  const n=2*G.R+1;
-  if(FM.run!==D.ald.run){
-    FM.run=D.ald.run; FM.fr=fr; FM.n=n;
-    const sw=ALD.ilcc(G.ci-G.R-0.5,G.cj-G.R-0.5,G.g), ne=ALD.ilcc(G.ci+G.R+0.5,G.cj+G.R+0.5,G.g);
+  if(FM.run!==src.id){
+    FM.run=src.id; FM.src=src; FM.fr=fr; FM.n=src.n;
     if(FM.ov) FM.map.removeLayer(FM.ov);
-    FM.cv=document.createElement('canvas'); FM.cv.width=FM.cv.height=n*FM.UP;
-    FM.ov=L.imageOverlay(FM.cv.toDataURL(),[sw,ne],{opacity:0.62,interactive:false}).addTo(FM.map);
-    FM.map.setMaxBounds(L.latLngBounds(sw,ne).pad(0.1));
-    $('fmSlider').max=fr.length-1; $('fmNote').textContent=`Hodinové zrážky z modelu SHMÚ ALADIN 4,5 km, beh ${+D.ald.run.slice(6,8)}. ${+D.ald.run.slice(4,6)}. ${D.ald.run.slice(9,11)}:00 UTC (rovnaký ako hlavná predpoveď). Typ zrážok podľa teploty pri zemi a v 1500 m.`;
+    FM.cv=document.createElement('canvas'); FM.cv.width=FM.cv.height=src.n*FM.UP;
+    FM.ov=L.imageOverlay(FM.cv.toDataURL(),[src.sw,src.ne],{opacity:0.62,interactive:false}).addTo(FM.map);
+    FM.map.setMaxBounds(L.latLngBounds(src.sw,src.ne).pad(0.25));
+    $('fmSlider').max=fr.length-1; $('fmNote').textContent=src.note;
     fmShow(0);
   }
   setTimeout(()=>FM.map&&FM.map.invalidateSize(),60);
 }
+function fmTy(f,bl){ return f.sr? (v=>v>=0.7?'snow':v>=0.25?'mix':'rain')(bl(f.sr)) : fmType(bl(f.t2),bl(f.t8)); }
+function fmBl(f,n,gx,gy){ const i0=Math.max(0,Math.min(n-2,Math.floor(gx))), j0=Math.max(0,Math.min(n-2,Math.floor(gy))), di=Math.max(0,Math.min(1,gx-i0)), dj=Math.max(0,Math.min(1,gy-j0));
+  return a=>{ if(!a) return null; const q=(i,j)=>a[j*n+i]; const v=[q(i0,j0),q(i0+1,j0),q(i0,j0+1),q(i0+1,j0+1)]; if(v.some(z=>z==null)) return v[0]; return v[0]*(1-di)*(1-dj)+v[1]*di*(1-dj)+v[2]*(1-di)*dj+v[3]*di*dj; }; }
 function fmDraw(f){
   const n=FM.n, U=FM.UP, W=n*U, ctx=FM.cv.getContext('2d'), im=ctx.createImageData(W,W), d=im.data;
-  const at=(a,i,j)=>a[j*n+i];
-  for(let y=0;y<W;y++){ const gy=(W-1-y)/U-0.5+0; const j0=Math.max(0,Math.min(n-2,Math.floor(gy))), dj=Math.max(0,Math.min(1,gy-j0));
-    for(let x=0;x<W;x++){ const gx=x/U-0.5; const i0=Math.max(0,Math.min(n-2,Math.floor(gx))), di=Math.max(0,Math.min(1,gx-i0));
-      const bl=a=>{const v00=at(a,i0,j0),v10=at(a,i0+1,j0),v01=at(a,i0,j0+1),v11=at(a,i0+1,j0+1); if(v00==null||v10==null||v01==null||v11==null) return v00; return v00*(1-di)*(1-dj)+v10*di*(1-dj)+v01*(1-di)*dj+v11*di*dj;};
+  for(let y=0;y<W;y++){ const gy=(W-1-y)/U-0.5;
+    for(let x=0;x<W;x++){ const gx=x/U-0.5; const bl=fmBl(f,n,gx,gy);
       const v=bl(f.tp); if(!(v>=0.05)) continue;
-      const c=fmColor(v,fmType(bl(f.t2),bl(f.t8))); if(!c) continue;
+      const c=fmColor(v,fmTy(f,bl)); if(!c) continue;
       const e=Math.min(gx+0.5,gy+0.5,n-0.5-gx,n-0.5-gy); const p=(y*W+x)*4; d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=Math.round(255*Math.max(0,Math.min(1,e/2.5))); } }
   ctx.putImageData(im,0,0); FM.ov.setUrl(FM.cv.toDataURL());
 }
 function fmShow(i){ FM.i=i; const f=FM.fr[i]; if(!f) return; fmDraw(f); $('fmSlider').value=i;
-  const k=localKey(new Date(f.t)), nowK=localKey(new Date());
+  const k=localKey(new Date(f.t)), nowK=localKey(new Date()), src=FM.src, n=FM.n;
   $('fmTime').textContent=whenLbl(k,nowK);
-  const p=(D.ald.pts||[]).find(x=>x.t===f.t); let lbl='bez zrážok';
-  if(p&&p.pr>=0.05){ const ty=fmType(p.t2,p.t850); lbl=`${fmt(p.pr)} mm/h · ${ty==='snow'?'sneh':ty==='mix'?'dážď so snehom':'dážď'}`; }
-  const tl=p?`${fmt(p.t2)} °C · `:''; $('fmVal').textContent='Mobis: '+tl+lbl; 
+  let lbl='bez zrážok', tl='';
+  if(src.ald){ const p=(D.ald.pts||[]).find(x=>x.t===f.t);
+    if(p&&p.pr>=0.05){ const ty=fmType(p.t2,p.t850); lbl=`${fmt(p.pr)} mm/h · ${ty==='snow'?'sneh':ty==='mix'?'dážď so snehom':'dážď'}`; } if(p) tl=`${fmt(p.t2)} °C · `; }
+  else { const [gx,gy]=src.toG(LAT,LON), bl=fmBl(f,n,gx,gy), v=bl(f.tp), t=bl(f.t2);
+    if(v>=0.05){ const ty=fmTy(f,bl); lbl=`${fmt(v)} mm/h · ${ty==='snow'?'sneh':ty==='mix'?'dážď so snehom':'dážď'}`; } if(t!=null) tl=`${fmt(t)} °C · `; }
+  $('fmVal').textContent='Mobis: '+tl+lbl;
   const b=$('fmBadge'); if(b) b.textContent=whenLbl(k,nowK);
-  const G=D.ald.grid, n=FM.n;
-  for(const T of FM.towns||[]){ const [fi,fj]=ALD.lcc(T.la,T.lo,G.g); const gx=fi-(G.ci-G.R), gy=fj-(G.cj-G.R);
-    const i0=Math.max(0,Math.min(n-2,Math.floor(gx))), j0=Math.max(0,Math.min(n-2,Math.floor(gy))), di=gx-i0, dj=gy-j0;
-    const bl=a=>{const q=(i,j)=>a[j*n+i]; const v=[q(i0,j0),q(i0+1,j0),q(i0,j0+1),q(i0+1,j0+1)]; if(v.some(z=>z==null)) return v[0]; return v[0]*(1-di)*(1-dj)+v[1]*di*(1-dj)+v[2]*(1-di)*dj+v[3]*di*dj;};
-    const v=bl(f.tp), ty=fmType(bl(f.t2),bl(f.t8)); const ic=v>=0.05?(ty==='snow'?'❄':ty==='mix'?'❄💧':'💧'):'';
-    const el=T.m.getElement(); if(el) el.innerHTML=`<span class="tn">${T.n}</span><span class="tv">${v>=0.05?ic+' '+fmt(v):'·'}</span>`; } }
+  for(const T of FM.towns||[]){ const [gx,gy]=src.toG(T.la,T.lo); const el=T.m.getElement(); if(!el) continue;
+    if(gx<-0.5||gy<-0.5||gx>n-0.5||gy>n-0.5){ el.innerHTML=`<span class="tn">${T.n}</span><span class="tv">–</span>`; continue; }
+    const bl=fmBl(f,n,gx,gy), v=bl(f.tp), ty=fmTy(f,bl); const ic=v>=0.05?(ty==='snow'?'❄':ty==='mix'?'❄💧':'💧'):'';
+    el.innerHTML=`<span class="tn">${T.n}</span><span class="tv">${v>=0.05?ic+' '+fmt(v):'·'}</span>`; } }
+$('fmSrc').onclick=e=>{ const b=e.target.closest('button'); if(!b||b.dataset.s===fmSrc) return; fmSrc=b.dataset.s; lsSet('zu_fmsrc',fmSrc); fmStop(); FM.run=null; FM.i=0; renderFmap(); };
 function fmSpeed(){ return +S.fmSpeed||2000; }
 function fmStop(){ clearTimeout(FM.timer); FM.timer=null; $('fmPlay').textContent='▶'; }
 function fmTick(){ const n=FM.fr.length; if(!n) return fmStop(); const nx=(FM.i+1)%n; fmShow(nx); FM.timer=setTimeout(fmTick, nx===n-1?fmSpeed()+2000:fmSpeed()); }
