@@ -1,0 +1,17 @@
+ZIMNÁ ÚDRŽBA – inštalácia do mobilu
+
+Adresa: https://noricozima.netlify.app
+
+Android (Chrome)
+  - Otvorte adresu v Chrome → menu ⋮ → "Inštalovať aplikáciu" / "Pridať na plochu".
+  - V aplikácii ťuknite na "🔔 Zapnúť upozornenia" a povoľte ich.
+
+iPhone (iOS 16.4 alebo novší)
+  - Otvorte adresu v Safari → Zdieľať → "Pridať na plochu".
+  - Spustite aplikáciu z ikony na ploche (nie zo Safari) a ťuknite na "🔔 Zapnúť upozornenia".
+
+Počítač (Chrome / Edge)
+  - Otvorte adresu a ťuknite na "🔔 Zapnúť upozornenia".
+
+Výstrahy posiela server každých 15 minút – prídu aj keď je aplikácia zatvorená.
+Po zapnutí príde hneď skúšobná správa "Upozornenia zapnuté".
