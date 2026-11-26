@@ -716,9 +716,9 @@ async function refresh(){
     const r=await loadAll();
     if(!r.om && !r.met) throw new Error('Žiadny zdroj nie je dostupný ('+r.errs.join('; ')+')');
     if(!r.om) throw new Error('Open-Meteo nedostupné: '+r.errs.join('; '));
-    const prevAld=D&&D.ald; D=r; D.ald=prevAld; D.series=buildSeries(r.om,r.met,D.ald); D.fetched=new Date();
+    const prevAld=D&&D.ald, prevNa=D&&D.na; D=r; D.ald=prevAld; D.na=prevNa; D.series=buildSeries(r.om,r.met,D.ald); D.fetched=new Date();
     render();
-    loadAladin();
+    loadAladin(); loadNetatmo();
     $('err').style.display=r.errs.length?'block':'none';
     if(r.errs.length) $('err').textContent='Niektoré zdroje sa nepodarilo načítať: '+r.errs.join(' · ')+'. Zobrazujem dostupné údaje.';
   }catch(e){
@@ -738,6 +738,8 @@ async function loadAladin(){
   }catch(e){ if(!D.series.aladin){aldState='fail'; if(D.ctx){renderNow();renderTable();}} setAldNote(location.protocol==='file:'?'SHMÚ ALADIN je dostupný iba vo webovej verzii (Netlify).':(D.ald?`SHMÚ ALADIN: beh ${D.ald.run} (novší sa nepodarilo stiahnuť, skúsim znova)`:'SHMÚ ALADIN sa nepodarilo načítať, skúsim pri ďalšej obnove.')); }
   finally{ aldBusy=false; }
 }
+async function loadNetatmo(){ if(!/^https?:$/.test(location.protocol)) return;
+  try{ const r=await fetch('/api/netatmo',{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j.configured||j.error||!j.n) return; if(D){ D.na=j; if(D.ctx) renderNow(); } }catch(e){} }
 function setAldNote(t){ const el=$('aldNote'); if(el) el.textContent=t; }
 function schedule(){clearTimeout(timer); nextAt=Date.now()+S.ref*60e3; timer=setTimeout(refresh,S.ref*60e3);}
 setInterval(()=>{ if(!D) return; const m=Math.max(0,Math.round((nextAt-Date.now())/60e3));
@@ -777,6 +779,9 @@ function renderNow(){
   $('stBig').textContent=c.L>0?c.tag:`${ic} ${tx||'Bez rizika'}`;
   $('stWhy').innerHTML=(c.why&&c.why.length?c.why.join(' · '):'Povrch nad bodom mrazu alebo bez zrážok.')+(nxt.L>c.L?` <br><b>Do 3 h:</b> ${lvlPill(nxt.L,nxt.tag)}`:'')+`<br><span class="note">Zdroj: ${cur.src==='aladin'?'SHMÚ ALADIN':(aldState==='loading'?'Open-Meteo, ALADIN sa načítava…':'Open-Meteo (ALADIN nedostupný)')}${cur.src==='aladin'&&omNow?' · Open-Meteo '+fmt(omNow.t2)+' °C':''}${metNow?' · yr.no '+fmt(metNow.t2)+' °C':''}</span>`;
   $('cStatus').style.background=`linear-gradient(135deg,var(--l${c.L}bg),var(--panel) 60%)`;
+  const NA=D.na&&D.na.n>0&&Date.now()-D.na.fetched<90*60e3?D.na:null;
+  if(NA){ const mt=t2; t2=NA.t; if(NA.td!=null) td=NA.td;
+    $('stWhy').insertAdjacentHTML('beforeend',`<br><span class="note">Teplota a rosný bod: meranie Netatmo (${NA.n} st. pri areáli${NA.rh!=null?', vlhkosť '+NA.rh+' %':''}${NA.rain1h?', zrážky '+fmt(NA.rain1h)+' mm/h':''}) · model ${fmt(mt)} °C</span>`); }
   $('kT').innerHTML=fmt(t2)+'<small> °C</small>'; $('kT').className=t2<0?'neg':'pos';
   $('kTs').innerHTML=fmt(cur.ts)+'<small> °C</small>'; $('kTs').className=cur.ts<0?'neg':'pos';
   $('kTd').innerHTML=fmt(td)+'<small> °C</small>';
