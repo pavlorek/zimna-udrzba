@@ -16,7 +16,7 @@ const location={protocol:'node:',host:''};
 const localStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{},key:()=>null,length:0};
 '''
 ftr='''
-export {LAT,LON,TZ,LVL,MODELS,DEF,S,fmt,localKey,keyNum,hourKey,hh,dayLbl,whenLbl,fullDay,HV,MV,loadAll,ALD,buildSeries,riskSeries,consensus,material};
+export {LAT,LON,TZ,LVL,MODELS,DEF,S,fmt,localKey,keyNum,hourKey,hh,dayLbl,whenLbl,fullDay,HV,MV,loadAll,ALD,buildSeries,naCorrect,riskSeries,consensus,material};
 '''
 open('netlify/lib/engine.mjs','w',encoding='utf-8').write(hdr+core+ftr)
 print('ok', len(s), len(core))

@@ -610,6 +610,28 @@ function buildSeries(om,met,ald){
   return series;
 }
 
+
+/* ---------- korekcia podľa merania (Netatmo) ----------
+   Odchýlka modelu od aktuálneho merania sa pripočíta k predpovedi a lineárne zoslabne do 6 h.
+   Rovnako sa opraví rosný bod; teplota povrchu o 70 % odchýlky vzduchu. Max ±4 °C. */
+function naCorrect(ser,NA,nowK){
+  if(!NA||NA.t==null||!ser||!ser.best_match) return ser;
+  const keys=ser.best_match.map(x=>x.k), i0=keys.indexOf(hourKey(nowK)); if(i0<0) return ser;
+  const frac=(+nowK.slice(14,16))/60, cl=x=>Math.max(-4,Math.min(4,x));
+  const es=x=>6.112*Math.exp(17.62*x/(243.12+x));
+  const out={}, info={};
+  for(const k in ser){ const a=ser[k]; if(!Array.isArray(a)){ out[k]=a; continue; }
+    const c=a[i0], n=a[i0+1]; if(!c||c.missing||c.t2==null){ out[k]=a; continue; }
+    const ok=n&&!n.missing&&n.t2!=null, mt=ok?c.t2+(n.t2-c.t2)*frac:c.t2, b=cl(NA.t-mt);
+    let bd=b; if(NA.td!=null&&c.td!=null){ const md=ok&&n.td!=null?c.td+(n.td-c.td)*frac:c.td; bd=cl(NA.td-md); }
+    info[k]=Math.round(b*10)/10;
+    out[k]=a.map((h,i)=>{ const dh=i-i0; if(!h||h.missing||h.t2==null||dh<0||dh>=6) return h; const w=1-dh/6;
+      const t2=h.t2+b*w, td=h.td!=null?Math.min(t2,h.td+bd*w):h.td, rh=td!=null?Math.min(100,100*es(td)/es(t2)):h.rh;
+      return Object.assign({},h,{t2,td,rh,ts:h.ts!=null?h.ts+b*w*0.7:h.ts,cor:b*w}); });
+  }
+  out._cor=info; return out;
+}
+
 /* ---------- risk engine ---------- */
 const FREEZE=[56,57,66,67];
 const ST={
@@ -739,7 +761,7 @@ async function loadAladin(){
   finally{ aldBusy=false; }
 }
 async function loadNetatmo(){ if(!/^https?:$/.test(location.protocol)) return;
-  try{ const r=await fetch('/api/netatmo',{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j.configured||j.error||!j.n) return; if(D){ D.na=j; if(D.ctx) renderNow(); } }catch(e){} }
+  try{ const r=await fetch('/api/netatmo',{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j.configured||j.error||!j.n) return; if(D){ D.na=j; if(D.ctx) render(); } }catch(e){} }
 function setAldNote(t){ const el=$('aldNote'); if(el) el.textContent=t; }
 function schedule(){clearTimeout(timer); nextAt=Date.now()+S.ref*60e3; timer=setTimeout(refresh,S.ref*60e3);}
 setInterval(()=>{ if(!D) return; const m=Math.max(0,Math.round((nextAt-Date.now())/60e3));
@@ -749,6 +771,9 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden && D && D
 
 /* ---------- render ---------- */
 function render(){
+  if(D.series!==D.cor) D.raw=D.series;
+  const NAc=D.na&&D.na.n>0&&Date.now()-D.na.fetched<90*60e3?D.na:null;
+  D.series=D.cor=naCorrect(D.raw,NAc,localKey(new Date()));
   const ser=D.series, base=ser.best_match, keys=base.map(x=>x.k);
   const nowK=localKey(new Date()), nowH=hourKey(nowK);
   let i0=keys.indexOf(nowH); if(i0<0) i0=0;
@@ -780,8 +805,8 @@ function renderNow(){
   $('stWhy').innerHTML=(c.why&&c.why.length?c.why.join(' · '):'Povrch nad bodom mrazu alebo bez zrážok.')+(nxt.L>c.L?` <br><b>Do 3 h:</b> ${lvlPill(nxt.L,nxt.tag)}`:'')+`<br><span class="note">Zdroj: ${cur.src==='aladin'?'SHMÚ ALADIN':(aldState==='loading'?'Open-Meteo, ALADIN sa načítava…':'Open-Meteo (ALADIN nedostupný)')}${cur.src==='aladin'&&omNow?' · Open-Meteo '+fmt(omNow.t2)+' °C':''}${metNow?' · yr.no '+fmt(metNow.t2)+' °C':''}</span>`;
   $('cStatus').style.background=`linear-gradient(135deg,var(--l${c.L}bg),var(--panel) 60%)`;
   const NA=D.na&&D.na.n>0&&Date.now()-D.na.fetched<90*60e3?D.na:null;
-  if(NA){ const mt=t2; t2=NA.t; if(NA.td!=null) td=NA.td;
-    $('stWhy').insertAdjacentHTML('beforeend',`<br><span class="note">Teplota a rosný bod: meranie Netatmo (${NA.n} st. pri areáli${NA.rh!=null?', vlhkosť '+NA.rh+' %':''}${NA.rain1h?', zrážky '+fmt(NA.rain1h)+' mm/h':''}) · model ${fmt(mt)} °C</span>`); }
+  if(NA){ const mt=D.raw&&D.raw.prim&&D.raw.prim[i0]?D.raw.prim[i0].t2:t2; t2=NA.t; if(NA.td!=null) td=NA.td;
+    $('stWhy').insertAdjacentHTML('beforeend',`<br><span class="note">Teplota a rosný bod: meranie Netatmo (${NA.n} st. pri areáli${NA.rh!=null?', vlhkosť '+NA.rh+' %':''}${NA.rain1h?', zrážky '+fmt(NA.rain1h)+' mm/h':''}) · model ${fmt(mt)} °C${D.series._cor&&D.series._cor.aladin!=null?` · predpoveď ALADIN opravená o ${D.series._cor.aladin>0?'+':''}${fmt(D.series._cor.aladin)} °C (slabne do 6 h)`:''}</span>`); }
   $('kT').innerHTML=fmt(t2)+'<small> °C</small>'; $('kT').className=t2<0?'neg':'pos';
   $('kTs').innerHTML=fmt(cur.ts)+'<small> °C</small>'; $('kTs').className=cur.ts<0?'neg':'pos';
   $('kTd').innerHTML=fmt(td)+'<small> °C</small>';
@@ -901,7 +926,7 @@ const VST=11841; // SHMÚ automatická stanica Žilina (Dolný Hričov)
 function vfLoad(k,d){ try{ return JSON.parse(localStorage.getItem(k)||'null')||d; }catch(e){ return d; } }
 function vfSave(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 function vfStore(){
-  const {keys}=D.ctx, ser=D.series, now=Date.now(), F=vfLoad('zu_vf',{});
+  const {keys}=D.ctx, ser=D.raw||D.series, now=Date.now(), F=vfLoad('zu_vf',{});
   for(let i=0;i<keys.length;i++){ const k=keys[i], t=keyNum(k)-tzOff(k), lead=(t-now)/36e5; if(lead<3||lead>24) continue;
     const row=F[k]||(F[k]={}); for(const m in PCW){ const x=ser[m]&&ser[m][i]; if(!x||x.missing||x.t2==null) continue; row[m]=[Math.round(x.t2*10)/10, x.ts!=null?Math.round(x.ts*10)/10:null, (x.pr||0)>=0.1?1:0]; } }
   const lim=keyNum(localKey(new Date(now-10*864e5))); for(const k in F) if(keyNum(k)<lim) delete F[k];

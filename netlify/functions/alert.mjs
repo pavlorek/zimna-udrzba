@@ -1,7 +1,8 @@
 // Plánovaná funkcia: každých 15 min vyhodnotí riziko (rovnaký výpočet ako aplikácia)
 // a pri novej / zhoršenej výstrahe pošle push všetkým prihláseným zariadeniam.
 import { store, sendAll } from '../lib/common.mjs';
-import { LAT, LON, LVL, MODELS, S, localKey, keyNum, hourKey, whenLbl, loadAll, ALD, buildSeries, riskSeries, consensus } from '../lib/engine.mjs';
+import netatmo from './netatmo.mjs';
+import { LAT, LON, LVL, MODELS, S, localKey, keyNum, hourKey, whenLbl, loadAll, ALD, buildSeries, naCorrect, riskSeries, consensus } from '../lib/engine.mjs';
 
 const UA = 'zimna-udrzba-app/1.0 (+https://noricozima.netlify.app)';
 const _f = globalThis.fetch;
@@ -48,7 +49,10 @@ export default async () => {
     const [r, ald] = await Promise.all([loadAll(), aladin(st, deadline).catch(e => ({ err: e.message }))]);
     log.errs = r.errs; log.ald = ald.err || `${ald.run} (${ald.pts.length} h${ald.complete ? '' : ', dopĺňa sa'})`;
     if (!r.om) throw new Error('Open-Meteo nedostupné');
-    const ser = buildSeries(r.om, r.met, ald.pts && ald.pts.length >= 6 ? ald : null);
+    let NA = null; try { const j = await (await netatmo()).json(); if (j && j.n > 0 && Date.now() - j.fetched < 90 * 60e3) NA = j; } catch (e) { }
+    log.netatmo = NA ? `${NA.t} °C (${NA.n} st.)` : 'nedostupné';
+    const ser = naCorrect(buildSeries(r.om, r.met, ald.pts && ald.pts.length >= 6 ? ald : null), NA, localKey(new Date()));
+    if (ser._cor) log.korekcia = ser._cor;
     const keys = ser.best_match.map(x => x.k);
     const nowK = localKey(new Date()); let i0 = keys.indexOf(hourKey(nowK)); if (i0 < 0) i0 = 0;
     const risks = {}; for (const M of MODELS) if (ser[M.k] && !M.hide) risks[M.k] = riskSeries(ser[M.k]);

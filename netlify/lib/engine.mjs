@@ -185,6 +185,28 @@ function buildSeries(om,met,ald){
   return series;
 }
 
+
+/* ---------- korekcia podľa merania (Netatmo) ----------
+   Odchýlka modelu od aktuálneho merania sa pripočíta k predpovedi a lineárne zoslabne do 6 h.
+   Rovnako sa opraví rosný bod; teplota povrchu o 70 % odchýlky vzduchu. Max ±4 °C. */
+function naCorrect(ser,NA,nowK){
+  if(!NA||NA.t==null||!ser||!ser.best_match) return ser;
+  const keys=ser.best_match.map(x=>x.k), i0=keys.indexOf(hourKey(nowK)); if(i0<0) return ser;
+  const frac=(+nowK.slice(14,16))/60, cl=x=>Math.max(-4,Math.min(4,x));
+  const es=x=>6.112*Math.exp(17.62*x/(243.12+x));
+  const out={}, info={};
+  for(const k in ser){ const a=ser[k]; if(!Array.isArray(a)){ out[k]=a; continue; }
+    const c=a[i0], n=a[i0+1]; if(!c||c.missing||c.t2==null){ out[k]=a; continue; }
+    const ok=n&&!n.missing&&n.t2!=null, mt=ok?c.t2+(n.t2-c.t2)*frac:c.t2, b=cl(NA.t-mt);
+    let bd=b; if(NA.td!=null&&c.td!=null){ const md=ok&&n.td!=null?c.td+(n.td-c.td)*frac:c.td; bd=cl(NA.td-md); }
+    info[k]=Math.round(b*10)/10;
+    out[k]=a.map((h,i)=>{ const dh=i-i0; if(!h||h.missing||h.t2==null||dh<0||dh>=6) return h; const w=1-dh/6;
+      const t2=h.t2+b*w, td=h.td!=null?Math.min(t2,h.td+bd*w):h.td, rh=td!=null?Math.min(100,100*es(td)/es(t2)):h.rh;
+      return Object.assign({},h,{t2,td,rh,ts:h.ts!=null?h.ts+b*w*0.7:h.ts,cor:b*w}); });
+  }
+  out._cor=info; return out;
+}
+
 /* ---------- risk engine ---------- */
 const FREEZE=[56,57,66,67];
 const ST={
@@ -283,4 +305,4 @@ function ensSnowProb(E,startKey,hours,thr){
 }
 
 
-export {LAT,LON,TZ,LVL,MODELS,DEF,S,fmt,localKey,keyNum,hourKey,hh,dayLbl,whenLbl,fullDay,HV,MV,loadAll,ALD,buildSeries,riskSeries,consensus,material};
+export {LAT,LON,TZ,LVL,MODELS,DEF,S,fmt,localKey,keyNum,hourKey,hh,dayLbl,whenLbl,fullDay,HV,MV,loadAll,ALD,buildSeries,naCorrect,riskSeries,consensus,material};
