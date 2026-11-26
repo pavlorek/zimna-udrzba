@@ -11,3 +11,4 @@ PWA s hodinovou predpoveďou a výstrahami pre zimnú údržbu areálu. Beží n
 VAPID kľúče aj zoznam zariadení sú v Netlify Blobs (vytvoria sa automaticky), nie v kóde.
 
 Po zmene `src/app.html` spustiť `python3 tools/build.py` a commitnúť aj vygenerované súbory.
+- `netlify/functions/netatmo.mjs` – `/api/netatmo`: priemer 3 verejných staníc Netatmo (env `NETATMO_CLIENT_ID`, `NETATMO_CLIENT_SECRET`, `NETATMO_REFRESH_TOKEN` v Netlify; po zmene premenných treba nový deploy)
