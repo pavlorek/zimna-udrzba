@@ -16,10 +16,13 @@ const MODELS=[
   {k:'met',sh:'yr',n:'yr.no / MET',d:'MET Norway (ECMWF + post-processing)'},];
 const DAYS=['Ne','Po','Ut','St','Št','Pi','So'];
 const DAYF=['nedeľa','pondelok','utorok','streda','štvrtok','piatok','sobota'];
-const CARDS=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
-const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0'};
+const CARDS_OLD=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
+const CARDS=[['cStatus','Stav teraz',1],['cAction','Najbližší zásah',1],['sum','Najbližších 48 h',1],['cTbl','Hodinová tabuľka'],['fZone','Plán zásahu podľa zón'],['cMatrix','Počasie po hodinách · porovnanie modelov'],['fMap','Animácia zrážok (ALADIN)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus'],['fVer','Presnosť modelov (meranie SHMÚ)']];
+const CARD_DEF_OFF={fMain:1,fNow:1,fEns:1,fPc:1,fVer:1};
+const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0',vis:null,order:null};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('zu_set')||'{}')); if(!localStorage.getItem('zu_v3')){S.lead=1; localStorage.setItem('zu_v3','1'); localStorage.setItem('zu_set',JSON.stringify(S));}}catch(e){}
+if(!S.vis){ S.vis={}; for(const [id] of CARDS) S.vis[id]=!CARD_DEF_OFF[id]; S.vis.sum=!matchMedia('(max-width: 700px)').matches; if(S.show) for(const k in S.show) if(S.show[k]) S.vis[k==='fSum'?'sum':k]=true; }
 const $=id=>document.getElementById(id);
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':(Math.round(v*10**d)/10**d).toFixed(d).replace('.',',');

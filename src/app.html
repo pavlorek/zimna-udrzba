@@ -64,9 +64,13 @@ header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--b
 .grid{display:grid;gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;min-width:0}
 .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.hero{grid-template-columns:1.25fr 1fr 1fr;margin-top:12px}
-.hero .tblcard{order:4;grid-column:1/-1;margin-top:0}
-@media(max-width:980px){.hero{grid-template-columns:1fr}.hero .sum{order:5}}
+.cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-top:12px}
+.cards>*{grid-column:span 6;margin-top:0!important}
+@media(max-width:980px){.cards>*{grid-column:1/-1!important}}
+.cordl{display:flex;flex-direction:column;gap:4px}
+.crow{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--line);border-radius:8px}
+#dlg .crow label.chk{flex:1;margin:0;font-size:13px}
+.crow button{border:1px solid var(--line);background:transparent;color:inherit;border-radius:6px;width:30px;height:28px;cursor:pointer;font-size:14px}
 .status{position:relative;overflow:hidden}
 .status .lvl{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px}
 .status .big{font-size:26px;font-weight:750;margin:10px 0 4px;line-height:1.15}
@@ -257,7 +261,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
 <div class="wrap">
   <div class="err" id="err"></div>
 
-  <div class="grid hero">
+  <div class="cards" id="cards">
     <div class="card status nodet" id="cStatus">
       <h2>Stav teraz <span id="nowTime" class="note"></span></h2>
       <div id="stLvl" class="lvl L0">—</div>
@@ -277,7 +281,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
       <div class="count" id="acCount"></div>
       <ul class="steps" id="acSteps"></ul>
     </div>
-  <section class="card tblcard">
+  <section class="card tblcard" id="cTbl">
     <h2>Hodinová tabuľka <span class="note">Úroveň = konsenzus všetkých modelov</span></h2>
     <div class="tablewrap" id="tblWrap"><table class="h" id="tbl"></table></div>
     <button class="btn showM" id="bCols" style="margin-top:8px">Zobraziť všetky stĺpce</button>
@@ -296,14 +300,13 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
         <tr><td>Max. nárazy vetra (záveje)</td><td id="sGust">–</td></tr>
       </table>
     </div>
-  </div>
 
   <details class="card fold" id="fZone" open>
     <summary><span>Plán zásahu podľa zón</span><span class="chev">▾</span></summary>
     <div class="fbody"><ol class="zplan" id="zPlan"></ol>
       <div class="note">Poradie podľa plánu ZÚ: zóna 1 (červená) a chodníky (fialová, ručne) → zóna 2 (modrá) → zóna 3 (zelená) → zóna 4 (žltá). Časy vychádzajú z konsenzu modelov a hlavnej predpovede SHMÚ ALADIN.</div></div>
   </details>
-  <section class="card">
+  <section class="card" id="cMatrix">
     <h2>Počasie po hodinách · 48 h · porovnanie modelov <span class="note">Ťuknite / prejdite na hodinu pre detail</span></h2>
     <div class="matrix" id="matrix"></div>
     <div class="legend" id="stLegend"></div>
@@ -373,6 +376,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
     <summary><span>Presnosť modelov · porovnanie s meraním SHMÚ Žilina</span><span class="chev">▾</span></summary>
     <div class="fbody"><div class="pcwrap"><table class="pct" id="verTbl"></table></div><div class="note" id="verNote"></div></div>
   </details>
+  </div>
 
   <div class="foot">Dáta: Open-Meteo.com (CC BY 4.0), MET Norway / yr.no (CC BY 4.0). Teplota povrchu je modelový odhad. Aplikácia beží lokálne vo vašom prehliadači.</div>
 </div>
@@ -391,7 +395,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
   <label>Rýchlosť animácie mapy<select id="sSpeed"><option value="4000">veľmi pomaly (4 s/h)</option><option value="3000">pomaly (3 s/h)</option><option value="2000">stredne (2 s/h)</option><option value="1200">rýchlejšie (1,2 s/h)</option><option value="700">rýchlo (0,7 s/h)</option></select></label>
   <label>Podrobnosti na karte Stav teraz<select id="sNowDet"><option value="0">Skryť</option><option value="1">Zobraziť</option></select></label>
   <label>Doladiť váhy podľa presnosti<select id="sAutoW"><option value="0">Nie (pevné váhy)</option><option value="1">Áno (po 24 h meraní)</option></select></label>
-  <div class="setcards"><div class="note" style="margin:10px 0 4px">Zobraziť ďalšie karty</div><div id="sCards"></div></div>
+  <div class="setcards"><div class="note" style="margin:10px 0 4px">Karty: zapnúť / vypnúť a poradie (↑ ↓)</div><div id="sCards"></div></div>
   <label>Téma<select id="sTheme"><option value="auto">Podľa systému</option><option value="light">Svetlá</option><option value="dark">Tmavá</option></select></label>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
     <button class="btn" id="bTest">Test upozornenia</button>
@@ -418,10 +422,13 @@ const MODELS=[
   {k:'met',sh:'yr',n:'yr.no / MET',d:'MET Norway (ECMWF + post-processing)'},];
 const DAYS=['Ne','Po','Ut','St','Št','Pi','So'];
 const DAYF=['nedeľa','pondelok','utorok','streda','štvrtok','piatok','sobota'];
-const CARDS=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
-const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0'};
+const CARDS_OLD=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
+const CARDS=[['cStatus','Stav teraz',1],['cAction','Najbližší zásah',1],['sum','Najbližších 48 h',1],['cTbl','Hodinová tabuľka'],['fZone','Plán zásahu podľa zón'],['cMatrix','Počasie po hodinách · porovnanie modelov'],['fMap','Animácia zrážok (ALADIN)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus'],['fVer','Presnosť modelov (meranie SHMÚ)']];
+const CARD_DEF_OFF={fMain:1,fNow:1,fEns:1,fPc:1,fVer:1};
+const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0',vis:null,order:null};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('zu_set')||'{}')); if(!localStorage.getItem('zu_v3')){S.lead=1; localStorage.setItem('zu_v3','1'); localStorage.setItem('zu_set',JSON.stringify(S));}}catch(e){}
+if(!S.vis){ S.vis={}; for(const [id] of CARDS) S.vis[id]=!CARD_DEF_OFF[id]; S.vis.sum=!matchMedia('(max-width: 700px)').matches; if(S.show) for(const k in S.show) if(S.show[k]) S.vis[k==='fSum'?'sum':k]=true; }
 const $=id=>document.getElementById(id);
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':(Math.round(v*10**d)/10**d).toFixed(d).replace('.',',');
@@ -925,7 +932,7 @@ function vfStore(){
 function tzOff(k){ const d=new Date(keyNum(k)); const lk=localKey(d); return keyNum(lk)-d.getTime(); }
 let verBusy=false;
 async function verFetch(){
-  if(verBusy||!S.show||!S.show.fVer||location.protocol==='file:') return; verBusy=true;
+  if(verBusy||!S.vis||!S.vis.fVer||location.protocol==='file:') return; verBusy=true;
   try{ const F=vfLoad('zu_vf',{}), O=vfLoad('zu_vo',{}), now=Date.now(); let n=0;
     const want=Object.keys(F).filter(k=>!(k in O)).map(k=>({k,t:keyNum(k)-tzOff(k)})).filter(x=>x.t<now-15*6e4&&x.t>now-3*864e5).sort((a,b)=>b.t-a.t);
     for(const w of want){ if(n++>=8) break;
@@ -1197,13 +1204,21 @@ $('bCopy').onclick=()=>{ if(!D) return; const {keys,i0,cons,nowK}=D.ctx, ev=D.ac
 
 /* settings */
 $('bSet').onclick=()=>{ $('sPlow').value=S.plow; $('sLead').value=S.lead; $('sMode').value=S.mode; $('sHor').value=S.hor; $('sRef').value=S.ref; $('sSnd').value=S.snd; $('sTheme').value=S.theme; $('sSpeed').value=String(S.fmSpeed||2000); $('sAutoW').value=S.autoW||'0'; $('sNowDet').value=S.nowDet||'0';
-  $('sCards').innerHTML=CARDS.map(([id,n])=>`<label class="chk"><input type="checkbox" data-c="${id}"${S.show&&S.show[id]?' checked':''}> ${n}</label>`).join(''); $('dlg').showModal(); };
+  $('sCards').innerHTML='<div class="cordl">'+cardOrder().map(id=>{ const n=CARDS.find(c=>c[0]===id)[1]; return `<div class="crow" data-c="${id}"><label class="chk"><input type="checkbox"${S.vis[id]?' checked':''}> ${n}</label><button type="button" data-m="-1" aria-label="Posunúť vyššie">↑</button><button type="button" data-m="1" aria-label="Posunúť nižšie">↓</button></div>`; }).join('')+'</div>'; $('dlg').showModal(); };
+$('sCards').addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(!b) return; const r=b.closest('.crow'), m=+b.dataset.m;
+  if(m<0&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); else if(m>0&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); });
 $('bCancel').onclick=()=>$('dlg').close();
-function applyCards(){ for(const [id] of CARDS){ const el=$(id); if(el) el.classList.toggle('cardoff',!(S.show&&S.show[id])); } }
+function cardOrder(){ const ids=CARDS.map(c=>c[0]); const o=(S.order||[]).filter(x=>ids.includes(x)); for(const x of ids) if(!o.includes(x)) o.push(x); return o; }
+function applyCards(){ const o=cardOrder(), small=new Set(CARDS.filter(c=>c[2]).map(c=>c[0]));
+  const els=id=>id==='sum'?[$('sumHostD'),$('fSum')]:[$(id)];
+  o.forEach((id,i)=>{ for(const el of els(id)) if(el){ el.style.order=i; el.classList.toggle('cardoff',!S.vis[id]); el.style.gridColumn=''; } });
+  const vis=o.filter(id=>S.vis[id]); let g=[];
+  const flush=()=>{ for(let k=0;k<g.length;k+=3){ const part=g.slice(k,k+3); for(const id of part){ const el=id==='sum'?$('sumHostD'):$(id); if(el) el.style.gridColumn='span '+(6/part.length); } } g=[]; };
+  for(const id of vis){ if(small.has(id)) g.push(id); else flush(); } flush(); }
 applyCards();
 $('bTest').onclick=()=>notify('❄ Test upozornenia','Takto bude vyzerať upozornenie pri zhoršení situácie.');
 $('bSave').onclick=()=>{ S.plow=+$('sPlow').value||3; S.lead=+$('sLead').value||0; S.mode=$('sMode').value; S.hor=+$('sHor').value||12; S.ref=Math.max(5,+$('sRef').value||15); S.snd=$('sSnd').value; S.theme=$('sTheme').value; S.fmSpeed=+$('sSpeed').value||2000; S.autoW=$('sAutoW').value; S.nowDet=$('sNowDet').value;
-  S.show={}; document.querySelectorAll('#sCards input').forEach(x=>{ if(x.checked) S.show[x.dataset.c]=1; }); applyCards();
+  S.vis={}; S.order=[]; document.querySelectorAll('#sCards .crow').forEach(r=>{ S.order.push(r.dataset.c); S.vis[r.dataset.c]=r.querySelector('input').checked; }); applyCards();
   lsSet('zu_set',JSON.stringify(S)); $('dlg').close(); applyTheme(); if(D) render(); schedule(); };
 document.querySelectorAll('details.fold').forEach(d=>{ if(lsGet('zu_open_'+d.id)==='1') d.open=true;
   d.addEventListener('toggle',()=>{ lsSet('zu_open_'+d.id,d.open?'1':'0'); if(d.open) Object.values(charts).forEach(c=>{try{c.resize()}catch(e){}}); }); });
