@@ -17,7 +17,7 @@ const MODELS=[
 const DAYS=['Ne','Po','Ut','St','Št','Pi','So'];
 const DAYF=['nedeľa','pondelok','utorok','streda','štvrtok','piatok','sobota'];
 const CARDS=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
-const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0'};
+const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0'};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('zu_set')||'{}')); if(!localStorage.getItem('zu_v3')){S.lead=1; localStorage.setItem('zu_v3','1'); localStorage.setItem('zu_set',JSON.stringify(S));}}catch(e){}
 const $=id=>document.getElementById(id);

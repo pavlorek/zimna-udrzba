@@ -199,6 +199,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
 .seg button{border:0;background:transparent;color:inherit;font:inherit;font-size:12px;padding:4px 9px;cursor:pointer;opacity:.7}
 .seg button.on{background:var(--accent,#2563eb);color:#fff;opacity:1;font-weight:650}
 .cardoff{display:none!important}
+.nodet #stWhy{display:none}
 .zplan{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .zplan li{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:start;padding:8px 10px;border-radius:10px;background:var(--panel2)}
 .zplan .zt{font-weight:700;font-size:13px}.zplan .zt .dd{display:block;font-weight:500;font-size:11.5px;color:var(--muted)}
@@ -257,16 +258,16 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
   <div class="err" id="err"></div>
 
   <div class="grid hero">
-    <div class="card status" id="cStatus">
+    <div class="card status nodet" id="cStatus">
       <h2>Stav teraz <span id="nowTime" class="note"></span></h2>
       <div id="stLvl" class="lvl L0">—</div>
       <div class="big" id="stBig">Načítavam predpoveď…</div>
       <div class="why" id="stWhy"></div>
       <div class="kpis">
-        <div class="kpi"><b id="kT">–</b><span>Vzduch 2 m</span></div>
-        <div class="kpi"><b id="kTs">–</b><span>Povrch (odhad)</span></div>
-        <div class="kpi"><b id="kTd">–</b><span>Rosný bod (odhad)</span></div>
-        <div class="kpi"><b id="kSd">–</b><span>Sneh. pokrývka (Open-Meteo)</span></div>
+        <div class="kpi"><b id="kT">–</b><span>Vzduch</span></div>
+        <div class="kpi"><b id="kTs">–</b><span>Povrch</span></div>
+        <div class="kpi"><b id="kTd">–</b><span>Rosný bod · vlhkosť</span></div>
+        <div class="kpi"><b id="kSd">–</b><span>Sneh túto hodinu</span></div>
       </div>
     </div>
     <div class="card action" id="cAction">
@@ -388,6 +389,7 @@ dialog input,dialog select{font:inherit;padding:6px 8px;border-radius:8px;border
   <label>Interval obnovy (min)<input type="number" id="sRef" min="5" max="120" step="5"></label>
   <label>Zvuk pri upozornení<select id="sSnd"><option value="1">Áno</option><option value="0">Nie</option></select></label>
   <label>Rýchlosť animácie mapy<select id="sSpeed"><option value="4000">veľmi pomaly (4 s/h)</option><option value="3000">pomaly (3 s/h)</option><option value="2000">stredne (2 s/h)</option><option value="1200">rýchlejšie (1,2 s/h)</option><option value="700">rýchlo (0,7 s/h)</option></select></label>
+  <label>Podrobnosti na karte Stav teraz<select id="sNowDet"><option value="0">Skryť</option><option value="1">Zobraziť</option></select></label>
   <label>Doladiť váhy podľa presnosti<select id="sAutoW"><option value="0">Nie (pevné váhy)</option><option value="1">Áno (po 24 h meraní)</option></select></label>
   <div class="setcards"><div class="note" style="margin:10px 0 4px">Zobraziť ďalšie karty</div><div id="sCards"></div></div>
   <label>Téma<select id="sTheme"><option value="auto">Podľa systému</option><option value="light">Svetlá</option><option value="dark">Tmavá</option></select></label>
@@ -431,7 +433,7 @@ const MODELS=[
 const DAYS=['Ne','Po','Ut','St','Št','Pi','So'];
 const DAYF=['nedeľa','pondelok','utorok','streda','štvrtok','piatok','sobota'];
 const CARDS=[['fVer','Presnosť modelov (meranie SHMÚ)'],['fSum','Najbližších 48 h (mobil)'],['fMain','Graf teplôt a zrážok'],['fNow','Nowcast po 15 minútach'],['fEns','Pravdepodobnosti z ensemblov'],['fPc','Pravdepodobnostný konsenzus']];
-const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0'};
+const DEF={plow:3,lead:1,mode:'balanced',hor:12,ref:15,snd:'1',theme:'auto',fmSpeed:2000,show:{},autoW:'0',nowDet:'0'};
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('zu_set')||'{}')); if(!localStorage.getItem('zu_v3')){S.lead=1; localStorage.setItem('zu_v3','1'); localStorage.setItem('zu_set',JSON.stringify(S));}}catch(e){}
 const $=id=>document.getElementById(id);
@@ -809,8 +811,10 @@ function renderNow(){
     $('stWhy').insertAdjacentHTML('beforeend',`<br><span class="note">Teplota a rosný bod: meranie Netatmo (${NA.n} st. pri areáli${NA.rh!=null?', vlhkosť '+NA.rh+' %':''}${NA.rain1h?', zrážky '+fmt(NA.rain1h)+' mm/h':''}) · model ${fmt(mt)} °C${D.series._cor&&D.series._cor.aladin!=null?` · predpoveď ALADIN opravená o ${D.series._cor.aladin>0?'+':''}${fmt(D.series._cor.aladin)} °C (slabne do 6 h)`:''}</span>`); }
   $('kT').innerHTML=fmt(t2)+'<small> °C</small>'; $('kT').className=t2<0?'neg':'pos';
   $('kTs').innerHTML=fmt(cur.ts)+'<small> °C</small>'; $('kTs').className=cur.ts<0?'neg':'pos';
-  $('kTd').innerHTML=fmt(td)+'<small> °C</small>';
-  $('kSd').innerHTML=cur.sd!=null?Math.round(cur.sd*100)+'<small> cm</small>':'–';
+  const rhN=NA&&NA.rh!=null?NA.rh:(cur.rh!=null?Math.round(cur.rh):null);
+  $('kTd').innerHTML=fmt(td)+'<small> °C</small>'+(rhN!=null?'<small> · '+rhN+' %</small>':'');
+  $('kSd').innerHTML=fmt(cur.snow||0)+'<small> cm</small>';
+  $('cStatus').classList.toggle('nodet',S.nowDet!=='1');
   document.title=(c.L>=2?'⚠ ':'')+LVL[c.L].s+' · Zimná údržba';
 }
 
@@ -1206,13 +1210,13 @@ $('bCopy').onclick=()=>{ if(!D) return; const {keys,i0,cons,nowK}=D.ctx, ev=D.ac
   navigator.clipboard.writeText(t).then(()=>{$('bCopy').textContent='✓ Skopírované'; setTimeout(()=>$('bCopy').textContent='📋 Prehľad pre zmenu',2000)},()=>prompt('Skopírujte:',t)); };
 
 /* settings */
-$('bSet').onclick=()=>{ $('sPlow').value=S.plow; $('sLead').value=S.lead; $('sMode').value=S.mode; $('sHor').value=S.hor; $('sRef').value=S.ref; $('sSnd').value=S.snd; $('sTheme').value=S.theme; $('sSpeed').value=String(S.fmSpeed||2000); $('sAutoW').value=S.autoW||'0';
+$('bSet').onclick=()=>{ $('sPlow').value=S.plow; $('sLead').value=S.lead; $('sMode').value=S.mode; $('sHor').value=S.hor; $('sRef').value=S.ref; $('sSnd').value=S.snd; $('sTheme').value=S.theme; $('sSpeed').value=String(S.fmSpeed||2000); $('sAutoW').value=S.autoW||'0'; $('sNowDet').value=S.nowDet||'0';
   $('sCards').innerHTML=CARDS.map(([id,n])=>`<label class="chk"><input type="checkbox" data-c="${id}"${S.show&&S.show[id]?' checked':''}> ${n}</label>`).join(''); $('dlg').showModal(); };
 $('bCancel').onclick=()=>$('dlg').close();
 function applyCards(){ for(const [id] of CARDS){ const el=$(id); if(el) el.classList.toggle('cardoff',!(S.show&&S.show[id])); } }
 applyCards();
 $('bTest').onclick=()=>notify('❄ Test upozornenia','Takto bude vyzerať upozornenie pri zhoršení situácie.');
-$('bSave').onclick=()=>{ S.plow=+$('sPlow').value||3; S.lead=+$('sLead').value||0; S.mode=$('sMode').value; S.hor=+$('sHor').value||12; S.ref=Math.max(5,+$('sRef').value||15); S.snd=$('sSnd').value; S.theme=$('sTheme').value; S.fmSpeed=+$('sSpeed').value||2000; S.autoW=$('sAutoW').value;
+$('bSave').onclick=()=>{ S.plow=+$('sPlow').value||3; S.lead=+$('sLead').value||0; S.mode=$('sMode').value; S.hor=+$('sHor').value||12; S.ref=Math.max(5,+$('sRef').value||15); S.snd=$('sSnd').value; S.theme=$('sTheme').value; S.fmSpeed=+$('sSpeed').value||2000; S.autoW=$('sAutoW').value; S.nowDet=$('sNowDet').value;
   S.show={}; document.querySelectorAll('#sCards input').forEach(x=>{ if(x.checked) S.show[x.dataset.c]=1; }); applyCards();
   lsSet('zu_set',JSON.stringify(S)); $('dlg').close(); applyTheme(); if(D) render(); schedule(); };
 document.querySelectorAll('details.fold').forEach(d=>{ if(lsGet('zu_open_'+d.id)==='1') d.open=true;
